@@ -1,112 +1,365 @@
-# Projeto Passos Mágicos
-Datathon - Passos Mágicos (MLOps)
+PROJETO: SISTEMA DE PREVISÃO DE DEFASAGEM ESCOLAR
+Autor: Marcos Paulo Amaro
 
-1. Visão Geral do Projeto
-Este projeto tem como objetivo prever o risco de defasagem escolar de alunos da Associação Passos Mágicos a partir de indicadores educacionais e notas.  
-A solução foi construída seguindo boas práticas de Machine Learning Engineering e MLOps, contemplando treinamento do modelo, API para inferência, dashboard para visualização, testes unitários e monitoramento de drift.
+=================================================
+1. VISÃO GERAL DO PROJETO
+=================================================
 
-2. Problema de Negócio
-Identificar alunos com maior risco de defasagem escolar para apoiar intervenções pedagógicas precoces e direcionar melhor os recursos educacionais da instituição.
+Este projeto implementa um pipeline completo de Machine Learning para prever
+o risco de defasagem escolar de alunos utilizando indicadores educacionais.
 
-3. Stack Tecnológica
-- Linguagem: Python 3.x
-- Machine Learning: scikit-learn, pandas, numpy
-- Modelos: RandomForest (Classificação e Regressão)
-- API: FastAPI
-- Serialização: joblib
-- Dashboard: Streamlit e Plotly
-- Testes: pytest
-- Monitoramento: logs de predição e script de detecção de drift
+A solução foi desenvolvida seguindo práticas de Machine Learning Engineering
+e MLOps, incluindo:
 
-4. Estrutura do Projeto
+- Treinamento de modelos
+- API para inferência
+- Dashboard para visualização
+- Testes unitários
+- Monitoramento de drift
+- Containerização com Docker
+
+O sistema permite analisar dados de alunos e prever:
+
+1) Se o aluno apresenta risco de defasagem
+2) A probabilidade desse risco
+3) O nível estimado de defasagem
+
+=================================================
+2. ARQUITETURA DO SISTEMA
+=================================================
+
+A arquitetura do projeto é composta por três camadas principais:
+
+1) Treinamento do modelo
+2) API de inferência
+3) Dashboard de visualização
+
+Fluxo do sistema:
+
+Dados Excel
+     ↓
+Pipeline de treinamento (Scikit-Learn)
+     ↓
+Modelos serializados (joblib)
+     ↓
+API FastAPI
+     ↓
+Dashboard Streamlit
+     ↓
+Usuário final
+
+=================================================
+3. ESTRUTURA DO PROJETO
+=================================================
 
 project-root/
- ├── src/
- │   ├── TRAIN_READ.py      - Treinamento dos modelos
- │   ├── API.py             - API FastAPI (/predict)
- │   └── STREAMLIT.py       - Dashboard
- ├── tests/                 - Testes unitários (pytest)
- │   └── test_training.py
- ├── monitoring/            - Monitoramento de drift
- │   └── drift_check.py
- ├── logs/                  - Logs de produção da API
- ├── models/                - Modelos treinados (.pkl)
- ├── data/                  - Base de dados (Excel)
- └── README.txt
 
-5. Como Rodar o Projeto Localmente
+src/
+    TRAIN_READ.py
+    API.py
+    STREAMLIT.py
 
-5.1 Criar ambiente virtual e instalar dependências
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+tests/
+    test_training.py
 
-5.2 Treinar os modelos
-python src/TRAIN_READ.py
+monitoring/
+    drift_check.py
 
-5.3 Subir a API
-uvicorn src.API:app --reload
+models/
+    model_class.pkl
+    model_reg.pkl
 
-5.4 Rodar o Dashboard
-streamlit run src/STREAMLIT.py
+data/
+    DADOS.xlsx
 
-6. Exemplo de Chamada da API
+logs/
+    predict_logs.jsonl
 
-curl -X POST http://127.0.0.1:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "Ano_nasc": 2007,
-    "Idade_22": 15,
-    "Ano_ingresso": 2021,
-    "Genero": "Menino",
-    "Fase": "3",
-    "Turma": "B",
-    "IAA": 7.5,
-    "IEG": 6.0,
-    "IPS": 7.5,
-    "IDA": 2.7,
-    "IPV": 4.7,
-    "IAN": 5.0,
-    "Matem": 6.0,
-    "Portug": 6.0,
-    "Ingles": 6.0
-  }'
+Dockerfile
+requirements.txt
+README.txt
 
-Resposta esperada:
+=================================================
+4. PIPELINE DE TREINAMENTO
+=================================================
+
+Arquivo: src/TRAIN_READ.py
+
+Responsável por:
+
+1) Carregar os dados do Excel
+2) Realizar limpeza e pré-processamento
+3) Criar variável alvo de risco
+4) Treinar dois modelos
+5) Salvar os modelos treinados
+
+Etapas principais:
+
+4.1 Carregamento dos dados
+
+O script lê todas as abas do Excel e concatena em um único DataFrame.
+
+pd.read_excel(sheet_name=None)
+
+4.2 Seleção de features
+
+Variáveis numéricas:
+
+Ano nasc
+Idade 22
+Ano ingresso
+IAA
+IEG
+IPS
+IDA
+IPV
+IAN
+Matem
+Portug
+Ingles
+
+Variáveis categóricas:
+
+Genero
+Fase
+Turma
+
+Target de regressão:
+
+Defasagem
+
+4.3 Criação da variável de classificação
+
+Risco = (Defasagem > 0)
+
+Isso transforma o problema em classificação binária.
+
+4.4 Pré-processamento
+
+Utiliza ColumnTransformer para:
+
+- StandardScaler em variáveis numéricas
+- OneHotEncoder em variáveis categóricas
+
+4.5 Modelos utilizados
+
+Classificação:
+RandomForestClassifier
+
+Regressão:
+RandomForestRegressor
+
+4.6 Split de dados
+
+train_test_split(test_size=0.2)
+
+4.7 Métricas avaliadas
+
+Classificação:
+accuracy_score
+
+Regressão:
+RMSE
+R2 score
+
+4.8 Serialização dos modelos
+
+Os modelos são salvos utilizando joblib:
+
+models/model_class.pkl
+models/model_reg.pkl
+
+=================================================
+5. API DE PREDIÇÃO
+=================================================
+
+Arquivo: src/API.py
+
+Framework utilizado: FastAPI
+
+A API expõe um endpoint principal:
+
+POST /predict
+
+Entrada esperada:
+
 {
-  "risco_defasagem": 1,
-  "probabilidade_risco": 0.82,
-  "defasagem_prevista": -1.3
+ "Ano_nasc": 2007,
+ "Idade_22": 15,
+ "Ano_ingresso": 2021,
+ "Genero": "Menino",
+ "Fase": "3",
+ "Turma": "B",
+ "IAA": 7.5,
+ "IEG": 6.0,
+ "IPS": 7.5,
+ "IDA": 2.7,
+ "IPV": 4.7,
+ "IAN": 5.0,
+ "Matem": 6.0,
+ "Portug": 6.0,
+ "Ingles": 6.0
 }
 
-7. Pipeline de Machine Learning
+Saída da API:
 
-7.1 Pre-processamento dos Dados
-Padronização de variáveis numéricas e codificação one-hot para variáveis categóricas.
+{
+ "risco_defasagem": 1,
+ "probabilidade_risco": 0.82,
+ "defasagem_prevista": -1.3
+}
 
-7.2 Engenharia de Features
-Seleção de indicadores educacionais e notas como variáveis de entrada.
+A API realiza:
 
-7.3 Treinamento e Validação
-Uso de RandomForest para classificação (risco) e regressão (nível de defasagem).
-Métricas: Accuracy para classificação, RMSE e R2 para regressão.
+1) Carregamento dos modelos
+2) Transformação dos dados
+3) Predição de classificação
+4) Predição de regressão
+5) Retorno em JSON
 
-7.4 Deploy
-Exposição dos modelos por meio de uma API FastAPI e consumo via dashboard Streamlit.
+=================================================
+6. DASHBOARD STREAMLIT
+=================================================
 
-7.5 Testes Unitários
-Implementação de testes unitários com pytest para validar o pipeline de treinamento e a inferência dos modelos.
+Arquivo: src/STREAMLIT.py
 
-7.6 Monitoramento Contínuo
-Registro das predições em logs e verificação de drift comparando estatísticas dos dados em produção com um baseline inicial.
+Responsável pela interface visual do sistema.
 
-8. Observação Importante sobre Interpretação de Risco
+Funcionalidades:
 
-O sistema utiliza dois níveis de decisão:
-1) Modelo de Machine Learning: prevê o risco de defasagem com base em múltiplos indicadores.
-2) Regra pedagógica (interpretação humana): traduz a previsão do modelo em categorias práticas considerando também as notas.
+- Visualização geral dos alunos
+- Distribuição de defasagem
+- Ranking dos melhores alunos
+- Consulta individual por RA
+- Exibição de indicadores educacionais
+- Visualização do nível de risco
 
-Dessa forma, a decisão final apresentada no dashboard é uma combinação de predição do modelo com uma regra de negócio pedagógica, tornando a solução mais interpretável para educadores.
+O dashboard se comunica com a API via HTTP utilizando requests.
 
-9. Autores
-Projeto desenvolvido para o Datathon - Pós Tech (Machine Learning Engineering).
+=================================================
+7. TESTES UNITÁRIOS
+=================================================
+
+Framework: pytest
+
+Arquivo: tests/test_training.py
+
+Testes implementados:
+
+1) Verificar se o treinamento gera modelos
+
+assert os.path.exists("models/model_class.pkl")
+
+2) Verificar se os modelos conseguem realizar previsões
+
+pred_class = clf.predict(df)
+pred_reg = reg.predict(df)
+
+Isso garante que o pipeline de treinamento está funcionando corretamente.
+
+=================================================
+8. MONITORAMENTO DE DRIFT
+=================================================
+
+Arquivo: monitoring/drift_check.py
+
+Função do script:
+
+Comparar estatísticas dos dados em produção com um baseline inicial.
+
+Passos:
+
+1) Ler logs das predições
+2) Calcular média das features
+3) Comparar com baseline
+4) Identificar possíveis mudanças no perfil dos dados
+
+Se a diferença ultrapassar um limite, é sinalizado:
+
+POSSIVEL DRIFT
+
+Isso indica que o modelo pode precisar ser re-treinado.
+
+=================================================
+9. LOGS DE PRODUÇÃO
+=================================================
+
+Arquivo:
+
+logs/predict_logs.jsonl
+
+Cada chamada da API registra:
+
+- dados de entrada
+- timestamp
+- resultado da predição
+
+Esses logs são utilizados para monitoramento.
+
+=================================================
+10. CONTAINERIZAÇÃO COM DOCKER
+=================================================
+
+Arquivo: Dockerfile
+
+O Docker permite empacotar a aplicação em um ambiente isolado.
+
+Etapas do Dockerfile:
+
+1) Usar imagem base Python
+2) Instalar dependências
+3) Copiar código da aplicação
+4) Copiar modelos treinados
+5) Executar API com Uvicorn
+
+Comando para build da imagem:
+
+docker build -t projeto-magico-api .
+
+Comando para rodar o container:
+
+docker run -p 8000:8000 projeto-magico-api
+
+A API ficará disponível em:
+
+http://localhost:8000/docs
+
+=================================================
+11. EXECUÇÃO DO PROJETO
+=================================================
+
+Treinar modelo:
+
+python src/TRAIN_READ.py
+
+Rodar API local:
+
+uvicorn src.API:app --reload
+
+Rodar dashboard:
+
+streamlit run src/STREAMLIT.py
+
+Rodar testes:
+
+pytest
+
+Rodar monitoramento de drift:
+
+python monitoring/drift_check.py
+
+Rodar via Docker:
+
+docker build -t projeto-magico-api .
+docker run -p 8000:8000 projeto-magico-api
+
+=================================================
+12. CONSIDERAÇÕES FINAIS
+=================================================
+
+O projeto demonstra um pipeline completo de Machine Learning,
+incluindo treinamento, inferência, visualização, testes,
+monitoramento e containerização.
+
+Essa abordagem segue boas práticas de engenharia de Machine Learning
+e facilita manutenção, escalabilidade e reprodutibilidade do sistema.
